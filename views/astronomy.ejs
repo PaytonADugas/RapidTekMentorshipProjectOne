@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="http://josiahswanson.com/css/base.css">
     <link rel="stylesheet" href="http://josiahswanson.com/css/main.css">
     <script src="http://josiahswanson.com/js/hej.js"></script>
-    <title>Josiah Swanson - Weather</title>
+    <title>Josiah Swanson - Astronomy</title>
 </head>
 <header>
     <a href="http://josiahswanson.com/index"><img
@@ -19,25 +19,18 @@
     <nav>
         <ul>
             <li><a class="navitem" href="/">index</a></li>
-            <li><a class="navitem" href="/astronomy">astronomy</a></li>
+            <li><a class="navitem selected" href="/astronomy">astronomy</a></li>
             <li><a class="navitem" href="/photo">photo</a></li>
-            <li><a class="navitem selectedlink" href="/weather">weather</a></li>
+            <li><a class="navitem" href="/weather">weather</a></li>
             <li><a class="navitem" href="/surf">surf</a></li>
             <li><a class="navitem" href="/calculator">calculator</a></li>
         </ul>
     </nav>
 </header>
-<form action="/weather" method="post">
-    <input name="city" type="text" placeholder="Enter a City" required>
-    <input type="submit" value="Get Weather">
+<form action="/astronomy" method="post">
+    <input type="submit" value="Get Astronomy">
 </form>
-<% if (weather !== null) { %>
-<p class='centeredp'><u><%- weather %></u></p>
-<% } %>
 
-<% if (error !== null) { %>
-<p class='centeredp'><%= error %></p>
-<% } %>
 <footer>
     <p class="centeredp">&copy;Josiah 2020 All Rights Reserved</p>
 </footer>

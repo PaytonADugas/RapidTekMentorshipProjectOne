@@ -7,6 +7,11 @@ router.get('/', (req, res) => {
     res.render('index', { title: 'index page' })
 })
 
+router.get('/astronomy', (req, res) => {
+    console.log('reuest for astronomy page')
+    res.render('astronomy', { title: 'astronomy page' })
+})
+
 router.get('/photo', (req, res) => {
     console.log('reuest for photo page')
     res.render('photo', { title: 'photo page' })

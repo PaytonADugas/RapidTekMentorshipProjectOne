@@ -15,6 +15,25 @@ app.use('/', routes)
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 
+app.post('/astronomy', function (req, res) {
+    let url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/forecast?aggregateHours=24&combinationMethod=aggregate&includeAstronomy=true&contentType=json&unitGroup=us&locationMode=array&key=Y0K754RVDRSAN3WIHC30UY2ZW&dataElements=default&locations=955%20La%20Paz%20Road%20Santa%20Barbara`
+    request(url, function (err, response, body) {
+        if (err) {
+            res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
+        } else {
+            let astronomy = JSON.parse(body)
+            console.log(astronomy)
+            if (astronomy.locations == undefined) {
+                res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
+            } else {
+                let message = `
+                Here is ther current moon phase: ${astronomy.locations[0].values[0].moonphase}`
+                res.render('astronomy', { astronomy: message, error: null })
+            }
+        }
+    })
+})
+
 app.post('/weather', function (req, res) {
     let city = req.body.city || 'haleiwa'
     let url = `http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${config.apiWeatherKey}&units=imperial`
