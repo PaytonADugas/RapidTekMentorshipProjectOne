@@ -26,8 +26,7 @@ app.post('/astronomy', function (req, res) {
             if (astronomy.locations == undefined) {
                 res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
             } else {
-                let message = `
-                Here is ther current moon phase: ${astronomy.locations[0].values[0].moonphase}`
+                let message = `Here is the current moon phase: ${astronomy.locations[0].values[0].moonphase}`
                 res.render('astronomy', { astronomy: message, error: null })
             }
         }

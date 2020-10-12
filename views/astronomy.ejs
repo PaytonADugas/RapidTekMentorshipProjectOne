@@ -19,7 +19,7 @@
     <nav>
         <ul>
             <li><a class="navitem" href="/">index</a></li>
-            <li><a class="navitem selected" href="/astronomy">astronomy</a></li>
+            <li><a class="navitem selectedlink" href="/astronomy">astronomy</a></li>
             <li><a class="navitem" href="/photo">photo</a></li>
             <li><a class="navitem" href="/weather">weather</a></li>
             <li><a class="navitem" href="/surf">surf</a></li>
@@ -28,9 +28,15 @@
     </nav>
 </header>
 <form action="/astronomy" method="post">
-    <input type="submit" value="Get Astronomy">
+    <input type="submit" value="Get Moon Phase">
 </form>
-
+<% if (astronomy !== null) { %>
+    <p class='centeredp'><u><%- astronomy %></u></p>
+    <% } %>
+    
+    <% if (error !== null) { %>
+    <p class='centeredp'><%= error %></p>
+    <% } %>
 <footer>
     <p class="centeredp">&copy;Josiah 2020 All Rights Reserved</p>
 </footer>

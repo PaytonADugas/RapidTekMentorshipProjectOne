@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
 
 router.get('/astronomy', (req, res) => {
     console.log('reuest for astronomy page')
-    res.render('astronomy', { title: 'astronomy page' })
+    res.render('astronomy', { astronomy: null, error: null })
 })
 
 router.get('/photo', (req, res) => {
