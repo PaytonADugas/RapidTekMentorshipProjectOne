@@ -4,11 +4,25 @@
   "description": "For josiahswanson.com",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "body-parser": "^1.19.0"
-  }
+    "axios": "^0.20.0",
+    "body-parser": "^1.19.0",
+    "cron": "^1.8.2",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/josiahswanson/rapidteksolutions.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/josiahswanson/rapidteksolutions/issues"
+  },
+  "homepage": "https://github.com/josiahswanson/rapidteksolutions#readme"
 }
