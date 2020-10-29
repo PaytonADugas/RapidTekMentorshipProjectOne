@@ -1,3 +1,8 @@
+'use strict';
+
+const PORT = 8080;
+const HOST = '0.0.0.0';
+
 const config = require('./config/defaults.json')
 const express = require('express')
 const path = require('path')
@@ -14,6 +19,7 @@ app.use('/', routes)
 
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
+app.engine('ejs', require('ejs').__express)
 
 app.post('/astronomy', function (req, res) {
     let url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/forecast?aggregateHours=24&combinationMethod=aggregate&includeAstronomy=true&contentType=json&unitGroup=us&locationMode=array&key=Y0K754RVDRSAN3WIHC30UY2ZW&dataElements=default&locations=955%20La%20Paz%20Road%20Santa%20Barbara`
@@ -88,19 +94,19 @@ app.post('/surf', function (req, res) {
     })
 })
 
-let add = function(num1, num2) {
+let add = function (num1, num2) {
     return num1 + num2;
 }
 
-let subtract = function(num1, num2) {
+let subtract = function (num1, num2) {
     return num1 - num2;
 }
 
-let multiply = function(num1, num2) {
+let multiply = function (num1, num2) {
     return num1 * num2;
 }
 
-let divide = function(num1, num2) {
+let divide = function (num1, num2) {
     return num1 / num2;
 }
 
@@ -122,7 +128,6 @@ app.post('/calculator', function (req, res) {
     res.render('calculator', { calculator: message, error: null })
 })
 
-app.listen(3000, function () {
-    console.log('Listening on port 3000!')
-    slackService.job.start();
+app.listen(PORT, function () {
+    console.log(`Running on http://${HOST}:${PORT}`)
 })
