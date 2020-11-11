@@ -10,6 +10,7 @@ const request = require('request')
 const routes = require('./routes')
 
 const app = express()
+app.use(express.static(__dirname + '/public'));
 const bodyParser = require('body-parser')
 
 const slackService = require('./slack.js');
@@ -32,8 +33,17 @@ app.post('/astronomy', function (req, res) {
             if (astronomy.locations == undefined) {
                 res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
             } else {
-                let message = `Here is the current moon phase: ${astronomy.locations[0].values[astronomy.locations[0].values.length - 1].moonphase}`
-                res.render('astronomy', { astronomy: message, error: null })
+                if (astronomy.locations[0].values[1].moonphase) {
+                    let mp = astronomy.locations[0].values[1].moonphase
+                    if (mp == 0) { res.render('astronomy', { astronomy: 'New Moon', error: null }) }
+                    if (mp < 0.25) { res.render('astronomy', { astronomy: 'Waxing Crescent', error: null }) }
+                    if (mp == 0.25) { res.render('astronomy', { astronomy: 'First Quarter', error: null }) }
+                    if (0.25 < mp < 0.5) { res.render('astronomy', { astronomy: 'Waxing Gibbous', error: null }) }
+                    if (mp == 0.5) { res.render('astronomy', { astronomy: 'Full Moon', error: null }) }
+                    if (mp < 0.75) { res.render('astronomy', { astronomy: 'Waning Gibbous', error: null }) }
+                    if (mp == 0.75) { res.render('astronomy', { astronomy: 'Last Quarter', error: null }) }
+                    if (mp < 1) { res.render('astronomy', { astronomy: 'Waning Crescent', error: null }) }
+                }
             }
         }
     })
