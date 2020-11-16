@@ -29,13 +29,13 @@ app.post('/astronomy', function (req, res) {
             res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
         } else {
             let astronomy = JSON.parse(body)
-            console.log(astronomy)
+            console.log(astronomy.locations[0].values)
             if (astronomy.locations == undefined) {
                 res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
             } else {
                 if (astronomy.locations[0].values[1].moonphase) {
                     let mp = astronomy.locations[0].values[1].moonphase
-                    if (mp == 0) { res.render('astronomy', { astronomy: 'New Moon', error: null }) }
+                    if (mp == 0 || mp == 1) { res.render('astronomy', { astronomy: 'New Moon', error: null }) }
                     if (mp < 0.25) { res.render('astronomy', { astronomy: 'Waxing Crescent', error: null }) }
                     if (mp == 0.25) { res.render('astronomy', { astronomy: 'First Quarter', error: null }) }
                     if (0.25 < mp < 0.5) { res.render('astronomy', { astronomy: 'Waxing Gibbous', error: null }) }
