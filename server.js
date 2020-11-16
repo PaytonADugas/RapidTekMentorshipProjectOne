@@ -104,7 +104,7 @@ app.post('/calculator', function (req, res) {
     res.render('calculator', { calculator: message, error: null })
 })
 
-app.listen(3000, function () {
-    console.log('Listening on port 3000!')
+app.listen(8080, function () {
+    console.log('Listening on port 8080!')
     slackService.job.start();
 })
