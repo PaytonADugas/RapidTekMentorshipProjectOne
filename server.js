@@ -1,3 +1,8 @@
+'use strict';
+
+const PORT = 8080;
+const HOST = '0.0.0.0';
+
 const config = require('./config/defaults.json')
 const express = require('express')
 const path = require('path')
@@ -5,6 +10,7 @@ const request = require('request')
 const routes = require('./routes')
 
 const app = express()
+app.use(express.static(__dirname + '/public'));
 const bodyParser = require('body-parser')
 
 const slackService = require('./slack.js');
@@ -14,6 +20,34 @@ app.use('/', routes)
 
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
+app.engine('ejs', require('ejs').__express)
+
+app.post('/astronomy', function (req, res) {
+    let url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/forecast?aggregateHours=24&combinationMethod=aggregate&includeAstronomy=true&contentType=json&unitGroup=us&locationMode=array&key=Y0K754RVDRSAN3WIHC30UY2ZW&dataElements=default&locations=955%20La%20Paz%20Road%20Santa%20Barbara`
+    request(url, function (err, response, body) {
+        if (err) {
+            res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
+        } else {
+            let astronomy = JSON.parse(body)
+            console.log(astronomy.locations[0].values)
+            if (astronomy.locations == undefined) {
+                res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
+            } else {
+                if (astronomy.locations[0].values[1].moonphase) {
+                    let mp = astronomy.locations[0].values[1].moonphase
+                    if (mp == 0 || mp == 1) { res.render('astronomy', { astronomy: 'New Moon', error: null }) }
+                    if (mp < 0.25) { res.render('astronomy', { astronomy: 'Waxing Crescent', error: null }) }
+                    if (mp == 0.25) { res.render('astronomy', { astronomy: 'First Quarter', error: null }) }
+                    if (0.25 < mp < 0.5) { res.render('astronomy', { astronomy: 'Waxing Gibbous', error: null }) }
+                    if (mp == 0.5) { res.render('astronomy', { astronomy: 'Full Moon', error: null }) }
+                    if (mp < 0.75) { res.render('astronomy', { astronomy: 'Waning Gibbous', error: null }) }
+                    if (mp == 0.75) { res.render('astronomy', { astronomy: 'Last Quarter', error: null }) }
+                    if (mp < 1) { res.render('astronomy', { astronomy: 'Waning Crescent', error: null }) }
+                }
+            }
+        }
+    })
+})
 
 app.post('/weather', function (req, res) {
     let city = req.body.city || 'haleiwa'
@@ -70,19 +104,19 @@ app.post('/surf', function (req, res) {
     })
 })
 
-let add = function(num1, num2) {
+let add = function (num1, num2) {
     return num1 + num2;
 }
 
-let subtract = function(num1, num2) {
+let subtract = function (num1, num2) {
     return num1 - num2;
 }
 
-let multiply = function(num1, num2) {
+let multiply = function (num1, num2) {
     return num1 * num2;
 }
 
-let divide = function(num1, num2) {
+let divide = function (num1, num2) {
     return num1 / num2;
 }
 
@@ -104,7 +138,6 @@ app.post('/calculator', function (req, res) {
     res.render('calculator', { calculator: message, error: null })
 })
 
-app.listen(8080, function () {
-    console.log('Listening on port 8080!')
-    slackService.job.start();
+app.listen(PORT, function () {
+    console.log(`Running on http://${HOST}:${PORT}`)
 })
