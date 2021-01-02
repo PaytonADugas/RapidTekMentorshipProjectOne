@@ -6,11 +6,11 @@ const HOST = '0.0.0.0';
 const config = require('./config/defaults.json')
 const express = require('express')
 const path = require('path')
-const request = require('request')
+const requester = require('request')
 const routes = require('./routes')
 
 const app = express()
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(path.join(__dirname, 'public')));
 const bodyParser = require('body-parser')
 
 const slackService = require('./slack.js');
@@ -22,9 +22,44 @@ app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 app.engine('ejs', require('ejs').__express)
 
+const sql = require('mssql')
+
+const sqlconfig = {
+    user: 'sqladmin',
+    password: 'LoveYourNeighbor!',
+    server: 'aggregatesqlserver.database.windows.net',
+    database: 'AGGREGATEDEVDB',
+    port: 1433
+};
+
+app.post('/index', function (req, res) {
+    let usrkey = req.body.key
+    sql.connect(sqlconfig, function (err) {
+
+        if (err) console.log(err);
+    
+        let sqlrequest = new sql.Request();
+       
+        let sqlQuery = 
+        'SELECT * FROM PREFERENCES INNER JOIN USERS ON PREFERENCES.PREFERENCESKEY = USERS.USERSKEY'
+    
+        sqlrequest.query(sqlQuery, function (err, data) {
+    
+            if (err) res.render('index', { index: null, error: 'Error, please try again' })
+            console.log(data.recordsets)
+            if (data.recordsets == undefined) res.render('index', { index: null, error: 'Error, please try again' })
+            if (data.recordsets[0][usrkey]) {
+                res.render('index', { index: `Your key: ${usrkey}, Your email: ${data.recordsets[0][usrkey].Email}, Your astronomy preference: ${data.recordsets[0][usrkey].AstronomyBoolean}, Your surf preference: ${data.recordsets[0][usrkey].SurfBoolean}`, error: null }) 
+            } else res.render('index', { index: null, error: 'Error, your key was not found.' })
+            
+    
+        });
+    });
+});
+
 app.post('/astronomy', function (req, res) {
     let url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/forecast?aggregateHours=24&combinationMethod=aggregate&includeAstronomy=true&contentType=json&unitGroup=us&locationMode=array&key=Y0K754RVDRSAN3WIHC30UY2ZW&dataElements=default&locations=955%20La%20Paz%20Road%20Santa%20Barbara`
-    request(url, function (err, response, body) {
+    requester(url, function (err, response, body) {
         if (err) {
             res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
         } else {
@@ -52,7 +87,7 @@ app.post('/astronomy', function (req, res) {
 app.post('/weather', function (req, res) {
     let city = req.body.city || 'haleiwa'
     let url = `http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${config.apiWeatherKey}&units=imperial`
-    request(url, function (err, response, body) {
+    requester(url, function (err, response, body) {
         if (err) {
             res.render('weather', { weather: null, error: 'Error, please try again' })
         } else {
@@ -70,13 +105,14 @@ app.post('/weather', function (req, res) {
         }
     })
 })
+
 app.post('/surf', function (req, res) {
     let surfID = 272
     if (req.body.Rockies) {
         surfID = 658
     }
     let url = `http://magicseaweed.com/api/${config.apiSurfKey}/forecast/?spot_id=${surfID}`
-    request(url, function (err, response, body) {
+    requester(url, function (err, response, body) {
         if (err) {
             res.render('surf', { surf: null, error: 'Error, please try again' })
         } else {

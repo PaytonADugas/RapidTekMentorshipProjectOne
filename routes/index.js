@@ -4,7 +4,7 @@ const router = express.Router()
 
 router.get('/', (req, res) => {
     console.log('reuest for index page')
-    res.render('index', { title: 'index page' })
+    res.render('index', { index: null, error: null })
 })
 
 router.get('/astronomy', (req, res) => {
