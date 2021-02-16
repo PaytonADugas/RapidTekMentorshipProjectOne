@@ -1,41 +1,6 @@
-<!doctype html>
-<html>
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width; initial-scale=1; maximum-scale=1; user-scalable=0;">
-    <meta name="description" content="The RTS Aggregate Solution">
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-    <link rel="stylesheet" href="../css/foundation.css" type="text/css">
-    <link rel="stylesheet" href="../css/base.css" type="text/css">
-    <link rel="stylesheet" href="../css/main.css" type="text/css">
-    <script src="https://josiahswanson.com/js/hej.js"></script>
-    <title>RTS Aggregate Solution</title>
-</head>
-
-<body onload="showGreeting()">
-<header>
-    <h1>RTS Aggregate Solution</h1>
-</header>
-<h1 class="greeter" style="display: none">Welcome to the Solution!</h1>
-<h1 class="greeter" style="display: none">What's up?</h1>
-<h1 class="greeter" style="display: none">RapidTek Solutions has what you need.</h1>
-<h1 class="greeter" style="display: none">Welcome.</h1>
-<form action="/index" method="post">
-    
-    <input name="key" type="text" placeholder="Enter your User Key" required>
-    <input type="submit" value="Get Data">
-</form>
-<% if (index !== null) { %>
-    <p class='centeredp'><u><%- index %></u></p>
-    <% } %>
-    
-    <% if (error !== null) { %>
-    <p class='centeredp'><%= error %></p>
-    <% } %>
-<footer>
-    <p class="centeredp">&copy;Josiah 2021 All Rights Reserved</p>
-</footer>
-</body>
-
-</html>
+<% if (!user) { %> 
+  <h2 class='centeredp'><u>Welcome! Please log in.</u></p> 
+<% } else { %>
+  <h2 class='centeredp'><u>Hello, <%= user.displayName %>!</u></h2>
+  <p class="centeredp"><a href="/logout">Log Out</a></p>
+<% } %>

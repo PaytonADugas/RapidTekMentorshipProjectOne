@@ -1,122 +1,304 @@
 'use strict';
 
+//////////////////////////////////////////////////////////////////////////
+//CONSTANTS
+//////////////////////////////////////////////////////////////////////////
+
 const PORT = 8080;
 const HOST = '0.0.0.0';
 
-const config = require('./config/defaults.json')
+const configDefaults = require('./config/defaults.json')
 const express = require('express')
+const expressLayouts = require('express-ejs-layouts')
 const path = require('path')
-const requester = require('request')
-const routes = require('./routes')
-
+const axios = require('axios')
+const expressSession = require('express-session');
+const methodOverride = require('method-override');
+const passport = require('passport');
+const cookieParser = require('cookie-parser');
+const bunyan = require('bunyan');
+const morgan = require('morgan');
+const config = require('./config');
 const app = express()
-app.use(express.static(path.join(__dirname, 'public')));
 const bodyParser = require('body-parser')
+const MongoStore = require('connect-mongo')(expressSession);
+const mongoose = require('mongoose');
+const OIDCStrategy = require('passport-azure-ad').OIDCStrategy;
+const sql = require('mssql');
+const { kMaxLength } = require('buffer');
 
-const slackService = require('./slack.js');
+//////////////////////////////////////////////////////////////////////////
+//APP SETTINGS
+//////////////////////////////////////////////////////////////////////////
 
+app.use(express.static(path.join(__dirname, '/public')));
+app.use(expressLayouts)
+app.use(morgan('dev'));
+app.use(methodOverride());
+app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use('/', routes)
-
 app.set('views', path.join(__dirname, 'views'))
+app.set('layout', 'layout')
 app.set('view engine', 'ejs')
 app.engine('ejs', require('ejs').__express)
 
-const sql = require('mssql')
+var log = bunyan.createLogger({
+    name: 'Omnia Application Logs'
+});
 
-const sqlconfig = {
-    user: 'sqladmin',
-    password: 'LoveYourNeighbor!',
-    server: 'aggregatesqlserver.database.windows.net',
-    database: 'AGGREGATEDEVDB',
-    port: 1433
-};
+//////////////////////////////////////////////////////////////////////////
+//AD AUTH
+//////////////////////////////////////////////////////////////////////////
 
-app.post('/index', function (req, res) {
-    let usrkey = req.body.key
-    sql.connect(sqlconfig, function (err) {
+passport.serializeUser(function (user, done) {
+    done(null, user.oid);
+});
 
-        if (err) console.log(err);
-    
-        let sqlrequest = new sql.Request();
-       
-        let sqlQuery = 
-        'SELECT * FROM PREFERENCES INNER JOIN USERS ON PREFERENCES.PREFERENCESKEY = USERS.USERSKEY'
-    
-        sqlrequest.query(sqlQuery, function (err, data) {
-    
-            if (err) res.render('index', { index: null, error: 'Error, please try again' })
-            console.log(data.recordsets)
-            if (data.recordsets == undefined) res.render('index', { index: null, error: 'Error, please try again' })
-            if (data.recordsets[0][usrkey]) {
-                res.render('index', { index: `Your key: ${usrkey}, Your email: ${data.recordsets[0][usrkey].Email}, Your astronomy preference: ${data.recordsets[0][usrkey].AstronomyBoolean}, Your surf preference: ${data.recordsets[0][usrkey].SurfBoolean}`, error: null }) 
-            } else res.render('index', { index: null, error: 'Error, your key was not found.' })
-            
-    
-        });
+passport.deserializeUser(function (oid, done) {
+    findByOid(oid, function (err, user) {
+        done(err, user);
     });
 });
 
-app.post('/astronomy', function (req, res) {
-    let url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/forecast?aggregateHours=24&combinationMethod=aggregate&includeAstronomy=true&contentType=json&unitGroup=us&locationMode=array&key=Y0K754RVDRSAN3WIHC30UY2ZW&dataElements=default&locations=955%20La%20Paz%20Road%20Santa%20Barbara`
-    requester(url, function (err, response, body) {
-        if (err) {
-            res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
-        } else {
-            let astronomy = JSON.parse(body)
-            console.log(astronomy.locations[0].values)
-            if (astronomy.locations == undefined) {
-                res.render('astronomy', { astronomy: null, error: 'Error, please try again' })
-            } else {
-                if (astronomy.locations[0].values[1].moonphase) {
-                    let mp = astronomy.locations[0].values[1].moonphase
-                    if (mp == 0 || mp == 1) { res.render('astronomy', { astronomy: 'New Moon', error: null }) }
-                    if (mp < 0.25) { res.render('astronomy', { astronomy: 'Waxing Crescent', error: null }) }
-                    if (mp == 0.25) { res.render('astronomy', { astronomy: 'First Quarter', error: null }) }
-                    if (0.25 < mp < 0.5) { res.render('astronomy', { astronomy: 'Waxing Gibbous', error: null }) }
-                    if (mp == 0.5) { res.render('astronomy', { astronomy: 'Full Moon', error: null }) }
-                    if (mp < 0.75) { res.render('astronomy', { astronomy: 'Waning Gibbous', error: null }) }
-                    if (mp == 0.75) { res.render('astronomy', { astronomy: 'Last Quarter', error: null }) }
-                    if (mp < 1) { res.render('astronomy', { astronomy: 'Waning Crescent', error: null }) }
-                }
-            }
-        }
-    })
-})
+var users = [];
 
-app.post('/weather', function (req, res) {
-    let city = req.body.city || 'haleiwa'
-    let url = `http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${config.apiWeatherKey}&units=imperial`
-    requester(url, function (err, response, body) {
-        if (err) {
-            res.render('weather', { weather: null, error: 'Error, please try again' })
+var findByOid = function (oid, fn) {
+    for (var i = 0, len = users.length; i < len; i++) {
+        var user = users[i];
+        log.info('we are using user: ', user);
+        if (user.oid === oid) {
+            return fn(null, user);
+        }
+    }
+    return fn(null, null);
+};
+
+passport.use(new OIDCStrategy({
+    identityMetadata: config.creds.identityMetadata,
+    clientID: config.creds.clientID,
+    responseType: config.creds.responseType,
+    responseMode: config.creds.responseMode,
+    redirectUrl: config.creds.redirectUrl,
+    allowHttpForRedirectUrl: config.creds.allowHttpForRedirectUrl,
+    clientSecret: config.creds.clientSecret,
+    validateIssuer: config.creds.validateIssuer,
+    isB2C: config.creds.isB2C,
+    issuer: config.creds.issuer,
+    passReqToCallback: config.creds.passReqToCallback,
+    scope: config.creds.scope,
+    loggingLevel: config.creds.loggingLevel,
+    nonceLifetime: config.creds.nonceLifetime,
+    nonceMaxAmount: config.creds.nonceMaxAmount,
+    useCookieInsteadOfSession: config.creds.useCookieInsteadOfSession,
+    cookieEncryptionKeys: config.creds.cookieEncryptionKeys,
+    clockSkew: config.creds.clockSkew,
+},
+    function (iss, sub, profile, accessToken, refreshToken, done) {
+        if (!profile.oid) {
+            return done(new Error("No oid found"), null);
+        }
+        process.nextTick(function () {
+            findByOid(profile.oid, function (err, user) {
+                if (err) {
+                    return done(err);
+                }
+                if (!user) {
+                    users.push(profile);
+                    return done(null, profile);
+                }
+                return done(null, user);
+            });
+        });
+    }
+));
+
+if (config.useMongoDBSessionStore) {
+    mongoose.connect(config.databaseUri);
+    app.use(express.session({
+        secret: 'secret',
+        cookie: { maxAge: config.mongoDBSessionMaxAge * 1000 },
+        store: new MongoStore({
+            mongooseConnection: mongoose.connection,
+            clear_interval: config.mongoDBSessionMaxAge
+        })
+    }));
+} else {
+    app.use(expressSession({ secret: 'keyboard cat', resave: true, saveUninitialized: false }));
+}
+
+app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) { return next(); }
+    res.redirect('/login');
+};
+
+app.get('/login',
+    function (req, res, next) {
+        passport.authenticate('azuread-openidconnect',
+            {
+                response: res,                      // required
+                resourceURL: config.resourceURL,    // optional. Provide a value if you want to specify the resource.
+                customState: 'my_state',            // optional. Provide a value if you want to provide custom state value.
+                failureRedirect: '/'
+            }
+        )(req, res, next);
+    },
+    function (req, res) {
+        log.info('Login was called in the Sample');
+        res.redirect('/');
+    });
+
+app.get('/auth/openid/return',
+    function (req, res, next) {
+        passport.authenticate('azuread-openidconnect',
+            {
+                response: res,    // required
+                failureRedirect: '/'
+            }
+        )(req, res, next);
+    },
+    function (req, res) {
+        log.info('We received a return from AzureAD.');
+        res.redirect('/');
+    });
+
+app.post('/auth/openid/return',
+    function (req, res, next) {
+        passport.authenticate('azuread-openidconnect',
+            {
+                response: res,
+                failureRedirect: '/'
+            }
+        )(req, res, next);
+    },
+
+    function (req, res) {
+        log.info('We received a return from AzureAD.');
+        res.redirect('/');
+
+        app.get('/logout', function (req, res) {
+            req.session.destroy(function (err) {
+                req.logOut();
+                res.redirect(config.destroySessionUrl);
+            });
+        });
+    });
+
+
+//////////////////////////////////////////////////////////////////////////
+//ROUTES
+//////////////////////////////////////////////////////////////////////////
+
+app.get('/', function (req, res) {
+    res.render('index', { user: req.user });
+});
+
+// notice how ensureAuthenticated is included, so as to keep the page exlusive to logged-in users
+
+app.get('/account', ensureAuthenticated, async function (req, res) {
+    res.render('account', { weatherMessage: await getWeather(), user: req.user });
+});
+
+app.get('/weather', ensureAuthenticated, async function (req, res) {
+    res.render('weather', { weatherReport: await getWeather(), user: req.user });
+});
+
+app.get('/astronomy', ensureAuthenticated, async function (req, res) {
+    res.render('astronomy', { astroReport: await getAstronomy(), user: req.user });
+});
+
+app.get('/surf', ensureAuthenticated, async function (req, res) {
+    res.render('surf', { surfReport: await getSurf(), user: req.user });
+});
+
+//////////////////////////////////////////////////////////////////////////
+//API QUERIES
+//////////////////////////////////////////////////////////////////////////
+
+// query weather website for weather report
+let weatherResponse = async () => {
+    let city = 'montgomery'
+    let url = `${configDefaults.weatherSite}${city}&appid=${configDefaults.apiWeatherKey}&units=imperial`
+    try {
+        return await axios.get(url);
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+// return a string, given the response from the whether website
+let getWeather = async () => {
+    let weather = await weatherResponse();
+    if (weather) {
+        if (weather.status != 200) {
+            return 'error'
         } else {
-            let weather = JSON.parse(body)
-            console.log(weather)
-            if (weather.main == undefined) {
-                res.render('weather', { weather: null, error: 'Error, please try again' })
-            } else {
-                let message = `
-                It's ${weather.main.temp} degrees Fahrenheit outside in ${weather.name} -
+            weather = weather.data
+            return `It's ${weather.main.temp} degrees Fahrenheit outside in ${weather.name} -
                 The humidity is ${weather.main.humidity}% -
                 The wind-speed is ${weather.wind.speed} m/s at ${weather.wind.deg} degrees.`
-                res.render('weather', { weather: message, error: null })
+        }
+    }
+}
+
+// query astronomy website for astronomy report
+let astroResponse = async () => {
+    let url = configDefaults.astroSite;
+    try {
+        return await axios.get(url);
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+// return a string, given the response from the astronomy website
+let getAstronomy = async () => {
+    let astro = await astroResponse();
+    if (astro) {
+        if (astro.status != 200) {
+            return 'error'
+        } else {
+            let astronomy = astro.data
+            if (astronomy.locations[0].values[1].moonphase) {
+                let mp = astronomy.locations[0].values[1].moonphase
+                if (mp == 0 || mp == 1) { return 'New Moon'; }
+                if (mp < 0.25) { return 'Waxing Crescent'; }
+                if (mp == 0.25) { return 'First Quarter'; }
+                if (0.25 < mp < 0.5) { return 'Waxing Gibbous'; }
+                if (mp == 0.5) { return 'Full Moon'; }
+                if (mp < 0.75) { return 'Waning Gibbous'; }
+                if (mp == 0.75) { return 'Last Quarter'; }
+                if (mp < 1) { return 'Waning Crescent'; }
             }
         }
-    })
-})
-
-app.post('/surf', function (req, res) {
-    let surfID = 272
-    if (req.body.Rockies) {
-        surfID = 658
     }
-    let url = `http://magicseaweed.com/api/${config.apiSurfKey}/forecast/?spot_id=${surfID}`
-    requester(url, function (err, response, body) {
-        if (err) {
-            res.render('surf', { surf: null, error: 'Error, please try again' })
+}
+
+// query surf website for surf report
+let surfResponse = async () => {
+    let surfID = 272
+    // if (req.body.Rockies) {
+    //     surfID = 658
+    // }
+    let url = `${configDefaults.surfSite}${configDefaults.apiSurfKey}/forecast/?spot_id=${surfID}`;
+    try {
+        return await axios.get(url);
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+// return a string, given the response from the surf website
+let getSurf = async () => {
+    let surf = await surfResponse();
+    if (surf) {
+        if (surf.status != 200) {
+            return 'error'
         } else {
-            let surf = JSON.parse(body)
+            surf = surf.data;
             let surfArray = [surf[surf.length - 32 - 4],
             surf[surf.length - 24 - 4],
             surf[surf.length - 16 - 4],
@@ -125,20 +307,23 @@ app.post('/surf', function (req, res) {
             let message = ``
             for (let i = 0; i < surfArray.length; i++) {
                 let t = surfArray[i].localTimestamp
-                let time = new Date(0)
-                time.setUTCSeconds(t)
-                time = time.toUTCString()
-                console.log(surfArray[i].swell.maxBreakingHeight)
+                let time = new Date(0);
+                time.setUTCSeconds(t);
+                time = time.toUTCString();
                 if (surfArray[i].swell != undefined) {
                     message += `<br>
-                    ${time.substring(0, 3).toUpperCase()}:<br>
-                    ${surfArray[i].swell.minBreakingHeight}-${surfArray[i].swell.maxBreakingHeight} FT ${surfArray[i].swell.components.combined.compassDirection} AT ${surfArray[i].swell.components.combined.period} SEC WITH ${surfArray[i].wind.speed} MPH ${surfArray[i].wind.compassDirection} WIND`
+                ${time.substring(0, 3).toUpperCase()}:<br>
+                ${surfArray[i].swell.minBreakingHeight}-${surfArray[i].swell.maxBreakingHeight} FT ${surfArray[i].swell.components.combined.compassDirection} AT ${surfArray[i].swell.components.combined.period} SEC WITH ${surfArray[i].wind.speed} MPH ${surfArray[i].wind.compassDirection} WIND`
                 }
             }
-            res.render('surf', { surf: message, error: null })
+            return message;
         }
-    })
-})
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+//MISC FUNCTIONS
+//////////////////////////////////////////////////////////////////////////
 
 let add = function (num1, num2) {
     return num1 + num2;
@@ -156,24 +341,42 @@ let divide = function (num1, num2) {
     return num1 / num2;
 }
 
-app.post('/calculator', function (req, res) {
-    let message = ``
-    let num1 = parseFloat(req.body.numberone)
-    let num2 = parseFloat(req.body.numbertwo)
-    let func = req.body.functionality.toUpperCase()
-    console.log(func)
-    if (func == 'ADD' || func == '+') {
-        message += `${num1} + ${num2} = ${add(num1, num2)}`
-    } else if (func == 'SUBTRACT' || func == '-') {
-        message += `${num1} - ${num2} = ${subtract(num1, num2)}`
-    } else if (func == 'MULTIPLY' || func == '*' || func == 'X') {
-        message += `${num1} x ${num2} = ${multiply(num1, num2)}`
-    } else if (func == 'DIVIDE' || func == '/') {
-        message += `${num1} / ${num2} = ${divide(num1, num2)}`
-    } else message += 'Please Try Again'
-    res.render('calculator', { calculator: message, error: null })
-})
+//////////////////////////////////////////////////////////////////////////
+//SQL LOGIN
+//////////////////////////////////////////////////////////////////////////
+
+const sqlconfig = {
+    user: 'sqladmin',
+    password: 'LoveYourNeighbor!',
+    server: 'aggregatesqlserver.database.windows.net',
+    database: 'AGGREGATEDEVDB',
+    port: 1433
+};
+
+//////////////////////////////////////////////////////////////////////////
+//API QUERIES
+//////////////////////////////////////////////////////////////////////////
+
+// sql.connect(sqlconfig, function (err) {
+
+//     if (err) console.log(err);
+
+//     let sqlrequest = new sql.Request();
+
+//     let sqlQuery = `EXEC NumUsersWithPreference ${prefNum}`;
+
+//     sqlrequest.query(sqlQuery, function (err, data) {
+//         if (err) { throw 'Error! at sqlrequest' }
+//         else {
+//             res.render('getPreferenceSum', { preferenceSumMessage: `This many: ${Object.values(data.recordset[0])[0]} users are present with this type.`, user: req.user, error: null });
+//         }
+//     });
+// });
+
+//////////////////////////////////////////////////////////////////////////
+//LISTEN
+//////////////////////////////////////////////////////////////////////////
 
 app.listen(PORT, function () {
-    console.log(`Running on http://${HOST}:${PORT}`)
-})
+    console.log(`Running on http://${HOST}:${PORT}`);
+});

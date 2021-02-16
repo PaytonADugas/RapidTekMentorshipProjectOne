@@ -1,3 +1,5 @@
+//THIS IS THE REMENANT OF A FUN PROJECT THAT SENT SURF REPORTS TO SLACK THROUGH A SLACKBOT
+
 const config = require('./config/defaults.json')
 const CronJob = require('cron').CronJob
 const axios = require('axios')
