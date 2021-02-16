@@ -22,7 +22,7 @@ exports.creds = {
     responseMode: 'form_post', 
   
     // Required, the reply URL registered in AAD for your app
-    redirectUrl: 'https://omnia-public-dev.westus2.azurecontainer.io:8080/auth/openid/return', 
+    redirectUrl: 'https://omnia-public-dev.westus2.azurecontainer.io:5671/auth/openid/return', 
   
     // Required if we use http for redirectUrl
     allowHttpForRedirectUrl: true,
