@@ -70,7 +70,7 @@ exports.creds = {
   };
   
   // The url you need to go to destroy the session with AAD
-  exports.destroySessionUrl = 'https://login.microsoftonline.com/common/oauth2/logout?post_logout_redirect_uri=https://omnia-public-dev.westus2.azurecontainer.io.westus2.azurecontainer.io:8080';
+  exports.destroySessionUrl = 'https://login.microsoftonline.com/common/oauth2/logout?post_logout_redirect_uri=https://omnia-public-dev.westus2.azurecontainer.io:8080';
   
   // If you want to use the mongoDB session store for session middleware, set to true; otherwise we will use the default
   // session store provided by express-session.
@@ -78,7 +78,7 @@ exports.creds = {
   exports.useMongoDBSessionStore = false;
   
   // If you want to use mongoDB, provide the uri here for the database.
-  exports.databaseUri = 'mongodb://omnia-public-dev.westus2.azurecontainer.io.westus2.azurecontainer.io/OIDCStrategy';
+  exports.databaseUri = 'mongodb://omnia-public-dev.westus2.azurecontainer.io/OIDCStrategy';
   
   // How long you want to keep session in mongoDB.
   exports.mongoDBSessionMaxAge = 24 * 60 * 60;  // 1 day (unit is second)
